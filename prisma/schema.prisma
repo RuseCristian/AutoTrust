@@ -1,0 +1,205 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum UserRole {
+  ADMIN
+  BUYER
+  DEALER
+  SERVICE
+}
+
+model User {
+  id                        String                @id @default(cuid())
+  firstName                 String?
+  lastName                  String?
+  email                     String?               @unique
+  emailVerified             DateTime?
+  image                     String?
+  password                  String?
+  role                      UserRole              @default(BUYER)
+  accounts                  Account[]
+  passwordLastReset         DateTime?
+  isTwoFactorEnabled        Boolean               @default(false)
+  twoFactorConfirmation     TwoFactorConfirmation?
+  name                      String?
+
+  // Relationships
+  dealership                Dealership?
+  service                   Service?
+
+  verificationEmailSentAt   DateTime?            
+  verificationEmailAttempts Int                  @default(0)
+  
+  passwordResetRequestedAt  DateTime?            // New field to track the last password reset request
+  passwordResetAttempts     Int                  @default(0) // New field to track the number of attempts
+}
+
+
+
+model Dealership {
+  id              String   @id @default(cuid())
+  phoneNumber     String   @unique
+  dealershipName  String   @unique
+  pdfFilePath     String
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  verifiedAt      DateTime? 
+  rating          Float?
+  CarListings     CarListing[]
+  @@index([userId], map: "idx_dealership_userId")
+}
+
+model Service {
+  id              String   @id @default(cuid())
+  phoneNumber     String   @unique
+  serviceName     String   @unique
+  pdfFilePath     String
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  rating          Float?
+  verifiedAt      DateTime? 
+  CarListings     CarListing[]
+  @@index([userId], map: "idx_service_userId")
+}
+
+
+
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model PasswordResetToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorConfirmation {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+
+model FeaturedCollections {
+  id String @id @default(cuid())
+  image String
+  title String
+  description String
+  link String
+
+}
+
+model CarBrand {
+  id      Int        @id @default(autoincrement())
+  name    String     
+  models  CarModel[] // Relation to CarModel
+  CarListings CarListing[]
+}
+
+model CarModel {
+  id        Int      @id @default(autoincrement())
+  name      String
+  brandId   Int
+  brand     CarBrand @relation(fields: [brandId], references: [id]) // Foreign key to CarBrand
+  CarListings     CarListing[]
+}
+
+
+model HeroImages {
+  id        Int      @id @default(autoincrement())
+  location String
+}
+
+
+model CarListing {
+  id                String   @id @default(cuid())
+  images            Json     // Use Json type for storing images array
+  title             String
+  brandId           Int
+  modelId           Int
+  registrationDate  String
+  mileage           String
+  price             Float
+  dealershipId      String
+  serviceId         String
+  vehicleCondition  String
+  uploadDate        DateTime @default(now())
+  transmissionType  String
+  tractionType      String
+  engineCapacity    Float
+  power             Float
+  emissionClass     String
+  fuelType          String
+  bodyType          String
+  exteriorColor     String
+  numberOfDoors     Int
+  numberOfSeats     Int
+  interiorColor     String
+  materialOfInterior String
+  airbags           String
+  airConditioning   String
+  interiorOptions   Json
+  exteriorOptions   Json
+  numberOfOwners    String
+  country           String
+  city              String
+
+  dealership        Dealership @relation(fields: [dealershipId], references: [id])
+  service           Service    @relation(fields: [serviceId], references: [id])
+  brand             CarBrand   @relation(fields: [brandId], references: [id])
+  model             CarModel   @relation(fields: [modelId], references: [id])
+
+  @@index([brandId, modelId])
+  @@index([dealershipId])
+  @@index([serviceId])
+}
